@@ -1,2 +1,6 @@
 # SCRIBE
 Semantic Configuration &amp; Repository Interface for Bureaucratic Expositions.
+
+# Description. 
+The S.C.R.I.B.E. unit, or 'Bureaucratic Scribe,' as it is affectionately, if somewhat ironically, known among its operators, represents the practical culmination of the Confluence auto-generation paradigm. This machine is not concerned with lofty philosophical inquiries into the nature of text; rather, its singular purpose is the relentless and efficient transcription of raw linguistic data into the rigid, hierarchical structures demanded by the modern informational repository. It acts as a tireless, uncomplaining automaton, processing textual directives and, with a precision born of pure algorithmic design, manifesting them as fully populated Confluence pages. While its output may lack the idiosyncratic flourishes of human authorship, its unwavering adherence to established formatting protocols and its sheer speed in converting intention into digital reality make it an indispensable tool for any organization burdened by the ever-increasing deluge of un-categorized knowledge. 
+t is, in essence, the perfect digital civil servant, forever drafting, forever organizing, forever... inscribing.
