@@ -1,112 +1,92 @@
 from atlassian import Confluence
 import re
+import configparser
+import sys
 
-# --- Configuration (see config file for values) ---
-CONFLUENCE_URL = "confluence"  # e.g., "https://your-domain.atlassian.net/wiki"
-USERNAME  = "email"          # Your Confluence username (email)
-API_TOKEN = ""                 # Generate from Atlassian account settings
-SPACE_KEY = "RRR"                 # e.g., "PROJ" for a project space
+#
 
-# --- Initialize Confluence API client ---
-try:
-    confluence = Confluence(
-        url=CONFLUENCE_URL,
-        token=API_TOKEN, # For API tokens, use 'password' parameter
-        cloud=True,          # Set to True for Confluence Cloud
-        verify_ssl="/Users/aivanov/Documents/Projects/SCRIBE/confluence-tii-ae-chain.pem"
-    )
-    print("Successfully connected to Confluence.")
-except Exception as e:
-    print(f"Error connecting to Confluence: {e}")
-    print("Please check your CONFLUENCE_URL, USERNAME, and API_TOKEN.")
-    exit()
+# --- Function to read configuration ---
+def read_config(config_file='scribe.cfg'):
+    config = configparser.ConfigParser()
+    try:
+        config.read_file(open(config_file))
+    except FileNotFoundError:
+        print(f"Error: Configuration file '{config_file}' not found.")
+        print("Please create 'scribe.cfg' with your Confluence URL, Space Key, and authentication details.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading configuration file '{config_file}': {e}")
+        sys.exit(1)
 
+    confluence_config = {}
+    auth_config = {}
 
-# --- Sample Text Description ---
-# Use '## Level 1:' for top-level pages
-# Use '### Level 2:' for sub-pages
-# Use '#### Level 3:' for sub-sub-pages, etc.
-# The content for each page will be everything after the level marker until the next level marker.
+    try:
+        # Read Confluence general settings
+        confluence_config['URL'] = config.get('CONFLUENCE', 'URL').strip()
+        confluence_config['SPACE_KEY'] = config.get('CONFLUENCE', 'SPACE_KEY').strip()
+
+        # Determine authentication method
+        if 'BEARER_TOKEN_AUTH' in config:
+            auth_config['TYPE'] = 'BEARER'
+            auth_config['TOKEN'] = config.get('BEARER_TOKEN_AUTH', 'TOKEN').strip()
+        elif 'BASIC_AUTH' in config:
+            auth_config['TYPE'] = 'BASIC'
+            auth_config['USERNAME'] = config.get('BASIC_AUTH', 'USERNAME').strip()
+            auth_config['API_TOKEN'] = config.get('BASIC_AUTH', 'API_TOKEN').strip()
+        else:
+            print("Error: No authentication section found in 'scribe.cfg'.")
+            print("Please add either [BEARER_TOKEN_AUTH] or [BASIC_AUTH] section.")
+            sys.exit(1)
+
+    except configparser.NoSectionError as e:
+        print(f"Error: Missing section in 'scribe.cfg': {e}")
+        print("Ensure you have [CONFLUENCE] and an authentication section ([BEARER_TOKEN_AUTH] or [BASIC_AUTH]).")
+        sys.exit(1)
+    except configparser.NoOptionError as e:
+        print(f"Error: Missing option in 'scribe.cfg': {e}")
+        print("Please check all required keys are present (URL, SPACE_KEY, TOKEN/USERNAME, API_TOKEN).")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error parsing configuration from 'scribe.cfg': {e}")
+        sys.exit(1)
+
+    return confluence_config, auth_config
+
 
 text_description = """
-## Level 1:  Introduction
-a. The MDD shall contain a description of the purpose, objective, content and
-the reason prompting its preparation (e.g. logic, organization, process or
-procedure).
-## Level 1:  Applicable and reference documents
-The MDD shall list the applicable and reference documents in support to
-the generation of the document, and include, as a minimum, the current
-preliminary technical requirements specification.
-## Level 1: Technical requirements specification
-Summary of key Technical requirements provided by LASP (Mass/Size, Power, Data, Key interfaces )
-Autonomy requirements (no uplink)
-## Level 1: Mission Description
-
-### Level 2: 1. Overview of the concept
-Brief overview - we're building effectively a cubesat that will function for 7 years in space to make a final descent onto the asteroid 267 Justitia. 
-### Level 2: 2. Mission analysis
-High level overview of the mission profile. 
-### Level 2: 3 CONOPS 
-we distinguish two main phases: pre-deployment (or cruise phase) and post deployment (after sepration from the main spacecraft towards the asteroid) . During the cruise phase, there the satellite will be be turned on for major events: fly-bys of asteroids and planets and aliveness check. 
-#### Level 3: Pre-deployment 
-
-##### Level 4: Fly bys 
-we expect to fly by Venus, Earth, Mars as weell as 6 asteroids. 
-Describe here how we're going to signal the fly-by mode 
-##### Level 4: Aliveness 
-Aliveness check is planned for all instruments during the cruise phase. Expected frequency once per year. 
-#### Level 3: Deployment and Descent 
-Describe CONOPS during descent with options depending on the asteroid gravity. 
-### Level 2: 4. System description
-#### Level 3: Payload
-All experiments on board 
-##### Level 4: Imaging cameras
-Requirements 
-Description of NAC and WAC
-Analysis
-##### Level 4: Data Processing Unit
-Requirements
-Description
-Analysis
-##### Level 4: Attitude Determination and Control System
-Requirements
-Description
-Analysis
-#### Level 3: Platform
-Platform (mostly contributed by the HEX20) 
-##### Level 4: Structure
-Requirements
-Description
-Analysis
-##### Level 4: Thermal
-Requirements
-Description
-Analysis
-##### Level 4: Energy and power System
-Requirements
-Description
-Analysis
-##### Level 4: Communications
-Requirements
-Description
-Analysis
-##### Level 4: OnBoard Computer
-Requirements
-Description
-Analysis
-## Level 1:  Assessment of the performance
-### Level 2: Design vs. Key Technical requirements 
-### Level 2: Verification of Key Technical requirements 
-### Level 2: Key Technical risks
-The MDD shall provide the list of identified risk related to the concept,
-including as a minimum technology, contingencies handling, and
-programmatic aspects.
-## Level 1:  Summary
-The MDD shall summarize the strengths and weaknesses of the concept.
+# Blalahdfha
+This is the main description for Project Apollo. It outlines the overall vision
+and high-level goals.
+## 1.1 Project Goals
+Our primary goal is to land a human on the Moon and return them safely to Earth
+before the end of the decade. We aim to achieve this through rigorous testing
+and innovative engineering.
 """
 
 # --- Function to parse the text description ---
 def parse_description(text):
+    pages = []
+    # Regex to find Markdown headings:
+    matches = re.findall(r"^(#+)\s*(.*?)\n(.*?)(?=\n#+|\Z)", text, re.MULTILINE | re.DOTALL)
+
+    for match in matches:
+        heading_hashes = match[0] # e.g., "#", "##"
+        level = len(heading_hashes) # Level is determined by the number of hashes
+        title = match[1].strip()
+        content = match[2].strip()
+
+        pages.append({
+            "level": level,
+            "title": title,
+            "content": content,
+            "parent_id": None # Will be filled later
+        })
+    return pages
+
+
+# --- Function to parse the text description ---
+def OLD_parse_description(text):
     pages = []
     # Regular expression to find level markers (e.g., "## Level 1:", "### Level 2:")
     # and capture the level number and the title.
@@ -147,7 +127,7 @@ def create_confluence_pages(parsed_pages, space_key):
         if level == 1:
             # Create a top-level page
             try:
-                print(f"Creating Level 1 page: '{title}'...")
+                print(f"Creating Level 1 page: '{title}' in ...")
                 response = confluence.create_page(
                     space=space_key,
                     title=title,
@@ -185,15 +165,42 @@ def create_confluence_pages(parsed_pages, space_key):
 
 # --- Main execution ---
 if __name__ == "__main__":
+
+    confluence_cfg, auth_cfg = read_config()
+    #--- Configuration (see config file for values) ---
+    CONFLUENCE_URL = confluence_cfg['URL'] # ]" # e.g., "https://your-domain.atlassian.net/wiki"
+    USERNAME  = "email"          # Your Confluence username (email)
+    API_TOKEN =  auth_cfg['TOKEN']; #           #  Generate from Atlassian account settings
+    print( API_TOKEN )
+    SPACE_KEY = "SAF"                 # e.g., "PROJ" for a project space
+
+
     if not all([CONFLUENCE_URL, USERNAME, API_TOKEN, SPACE_KEY]):
         print("Please configure CONFLUENCE_URL, USERNAME, API_TOKEN, and SPACE_KEY in the script.")
-    else:
-        print("Parsing text description...")
-        parsed_pages = parse_description(text_description)
-        print(f"Found {len(parsed_pages)} pages to create.")
+        exit(); 
 
-        # Optional: Print parsed structure for verification
-        for page in parsed_pages:
-            print(f"Level: {page['level']}, Title: {page['title']}")
+# --- Initialize Confluence API client ---
+    try:
+    	confluence = Confluence(
+        	url=CONFLUENCE_URL,
+        	token=API_TOKEN, # For API tokens, use 'password' parameter
+        	cloud=True,          # Set to True for Confluence Cloud
+        	verify_ssl="/Users/aivanov/Documents/Projects/SCRIBE/confluence-tii-ae-chain.pem"
+        	)
+    
+    	print("Successfully connected to Confluence.")
+    except Exception as e:
+    	print(f"Error connecting to Confluence: {e}")
+    	print("Please check your CONFLUENCE_URL, USERNAME, and API_TOKEN.")
+    	exit()
 
-        create_confluence_pages(parsed_pages, SPACE_KEY)
+
+    print("Parsing text description...")
+    parsed_pages = parse_description(text_description)
+    print(f"Found {len(parsed_pages)} pages to create.")
+
+    # Optional: Print parsed structure for verification
+    for page in parsed_pages:
+        print(f"Level: {page['level']}, Title: {page['title']}")
+
+    create_confluence_pages(parsed_pages, SPACE_KEY)
