@@ -67,7 +67,7 @@ def get_confluence_client(confluence_config, auth_config):
                 url=confluence_config['URL'],
                 token=auth_config['TOKEN'],
                 cloud=True,
-                verify_ssl=True # Adjust as needed for your environment
+                verify_ssl="/Users/aivanov/Documents/Projects/SCRIBE/confluence-tii-ae-chain.pem"
             )
             print("Successfully connected to Confluence using Bearer Token.")
         else: # BASIC_AUTH
@@ -91,37 +91,13 @@ def get_confluence_client(confluence_config, auth_config):
 # Use # for Level 1, ## for Level 2, ### for Level 3, and so on.
 # Content for each section goes directly below its heading.
 text_description = """
-# Project Apollo Overview
+# Blalahdfha
 This is the main description for Project Apollo. It outlines the overall vision
 and high-level goals.
-
 ## 1.1 Project Goals
 Our primary goal is to land a human on the Moon and return them safely to Earth
 before the end of the decade. We aim to achieve this through rigorous testing
 and innovative engineering.
-
-## 1.2 Project Objectives
-* Develop a lunar module capable of soft landing.
-* Design a command module for Earth orbit and re-entry.
-* Establish ground control and communication systems.
-* Train astronauts for lunar missions.
-
-## 1.3 Meeting Minutes (Recent)
-Summary of the last project steering committee meeting:
--   Budget approved for Q3.
--   Engine test schedule pushed back by two weeks.
--   New team members onboarded for navigation systems.
-
-### 1.3.1 Q1 Meeting Summary
-Key decisions from the first quarter meeting.
--   Initial team formation.
--   Technology stack selection.
-
-# Astronaut Training Program
-Details about the rigorous training regimen for our astronauts.
-
-## 2.1 Physical Conditioning
-Information on the physical requirements and training exercises.
 """
 
 # --- Function to parse the text description ---
@@ -164,13 +140,15 @@ def create_confluence_pages(parsed_pages, space_key, confluence_client):
                 continue
 
         try:
-            print(f"Creating Level {level} page: '{title}' (Parent ID: {parent_id if parent_id else 'None'}) ...")
+            print(f"Creating Level {level} page: '{space_key}/{title}' (Parent ID: {parent_id if parent_id else 'None'}) ...")
+            
             response = confluence_client.create_page( # Use the passed client
                 space=space_key,
                 title=title,
                 body=content,
                 parent_id=parent_id
             )
+          
             page_id = response['id']
             level_page_ids[level] = page_id
             # Clear IDs for lower levels, as this new page is now the "active" parent for its sub-levels
