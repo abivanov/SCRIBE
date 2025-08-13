@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import json
 import requests
 import configparser
+import sys
 
 
 def is_number(value):
@@ -127,7 +128,7 @@ def update_jira_fields(issue_key, sd_value, due_date):
          "Accept": "application/json"
     }
 
-    print( url, headers, sd_value, due_date)
+    # print( url, headers, sd_value, due_date)
     response= requests.put(url, headers=headers, data=json.dumps(payload),  verify= CERT_PATH )
     
     if response.status_code == 204:
