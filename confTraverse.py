@@ -21,6 +21,10 @@ from getpass import getpass
 from atlassian import Confluence
 from urllib.parse import unquote, urljoin
 
+from LatexWriter import LatexWriter
+
+import pypandoc
+
 from confluence_auth import read_config, get_confluence_client
 
 
@@ -45,6 +49,46 @@ def parse_confluence_url(url):
         print(f"An error occurred while parsing the URL: {e}")
         return None, None
 
+def convert_confluence_images(html_content):
+    """
+    Converts Confluence-style image tags to standard HTML <img> tags using regex.
+
+    This function finds all occurrences of the pattern:
+    <ac:image ac:title="..." ac:alt="..."><ri:attachment ri:filename="..." /></ac:image>
+    and replaces them with:
+    <img src="..." alt="..." title="...">
+
+    Args:
+        html_content (str): A string containing the HTML content to process.
+
+    Returns:
+        str: The processed HTML content with standard <img> tags.
+    """
+    # Regex to find the Confluence image tag and capture the necessary parts.
+    # It captures three groups:
+    # 1. The value of ac:title
+    # 2. The value of ac:alt
+    # 3. The value of ri:filename
+    # The pattern uses `.*?` (non-greedy) to handle other potential attributes
+    # within the tags without breaking the match.
+    pattern = re.compile(
+        r'<ac:image.*?ac:title="([^"]+)".*?ac:alt="([^"]+)".*?>'  # Start of <ac:image> and capture title/alt
+        r'\s*<ri:attachment.*?ri:filename="([^"]+)".*?/>\s*'      # The inner <ri:attachment> and capture filename
+        r'</ac:image>',                                          # The closing </ac:image>
+        re.DOTALL  # Allows '.' to match newlines, in case the tag is split across lines
+    )
+
+    # The replacement string uses backreferences to the captured groups.
+    # \g<3> is the filename (src)
+    # \g<2> is the alt text (alt)
+    # \g<1> is the title (title)
+    replacement_html = r'<img src="\g<3>" alt="\g<2>" title="\g<1>">'
+
+    # Use re.sub() to find all matches and replace them.
+    converted_content = pattern.sub(replacement_html, html_content)
+
+    return converted_content
+
 def sanitize_filename(filename):
     """Removes characters that are invalid for filenames."""
     return re.sub(r'[<>:"/\\|?*]', '_', filename)
@@ -54,15 +98,37 @@ def save_page_content(page, output_dir):
     try:
         page_title = page['title']
         # Sanitize the title to create a valid filename
-        filename = sanitize_filename(page_title) + ".html"
+        filename = sanitize_filename(page_title) + ".tex"
         filepath = os.path.join(output_dir, filename)
         
         # The HTML content is in the 'storage' format
-        html_content = page['body']['storage']['value']
+        html_content1 = page['body']['storage']['value']
+
+        html_content = convert_confluence_images(html_content1)
+
+        try:
+            # Use pypandoc to convert the HTML string to LaTeX.
+            # The 'string' format for the input and 'latex' for the output
+            # ensures we get a plain LaTeX string, not a full document.
+            # This will also handle things like HTML tables, lists, and headings.
+            latex_content = pypandoc.convert_text(
+                html_content,
+                'latex',
+                format='html',
+                extra_args=['--wrap=none']  # Prevents long lines from wrapping
+            )
+        except Exception as e:
+            # Handle potential errors, such as pandoc not being installed or found.
+            print(f"An error occurred during conversion: {e}" )
+            return
         
+        latex_content = latex_content.replace("keepaspectratio", r"width=0.9\textwidth")
+
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        print(f"    - Saved HTML to {filepath}")
+            f.write(latex_content)
+        print(f"    - Saved LaTex to {filepath}")
+
+        return( filename )
 
     except Exception as e:
         print(f"    - Error saving HTML content for page '{page.get('title', 'N/A')}': {e}")
@@ -85,7 +151,7 @@ def save_page_attachments(confluence, page_id, output_dir, auth_cfg):
             download_url = urljoin(confluence.url, attachment['_links']['download'])
             
             # Use the authenticated session from the confluence object to download
-            print(download_url) 
+            # print(download_url) 
             
             # There probably some bug in the Confluence implemntation: SSL certificate doesn't get sent 
             # Resorting to using requests directly
@@ -94,7 +160,8 @@ def save_page_attachments(confluence, page_id, output_dir, auth_cfg):
             
             
             # Prepend page_id to filename to avoid name conflicts
-            filename = f"{page_id}_{sanitize_filename(attachment_title)}"
+            # filename = f"{page_id}_{sanitize_filename(attachment_title)}"
+            filename = sanitize_filename(attachment_title)
             filepath = os.path.join(attachments_dir, filename)
             
             token = auth_cfg['TOKEN']
@@ -108,7 +175,7 @@ def save_page_attachments(confluence, page_id, output_dir, auth_cfg):
             )
 
             response.raise_for_status()
-            print( response.status_code)
+            # print( response.status_code)
         
             with open(filepath, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
@@ -122,7 +189,7 @@ def save_page_attachments(confluence, page_id, output_dir, auth_cfg):
     except Exception as e:
         print(f"    - General Error downloading attachments for page {page_id}: {e}")
 
-def process_page_and_children(confluence, page_id, level, output_dir, auth_cfg):
+def process_page_and_children(confluence, page_id, level, output_dir, auth_cfg, latex_writer):
     """
     Processes a given page (prints info, saves content/attachments)
     and then recursively does the same for all its children.
@@ -140,7 +207,7 @@ def process_page_and_children(confluence, page_id, level, output_dir, auth_cfg):
     page_title = page['title']
     
     # Define the hierarchical labels
-    levels = ["Document", "Chapter", "Section", "Subsection", "Subsubsection"]
+    levels = ["Document", "chapter", "section", "subsection", "subsubsection"]
     indent = "  " * level
     
     if level < len(levels):
@@ -153,10 +220,12 @@ def process_page_and_children(confluence, page_id, level, output_dir, auth_cfg):
         print(f"Processing Root Page: {page_title}")
     else:
         print(f"{indent}- {level_label}: {page_title}")
+        latex_writer.write_text(f"\\{level_label}{{{page_title}}}")
 
     # Save the page's HTML content
-    save_page_content(page, output_dir)
-    
+    filename = save_page_content(page, output_dir)
+    latex_writer.write_text(f"\\input{{{filename}}}")
+
     # Download and save the page's attachments
     save_page_attachments(confluence, page_id, output_dir, auth_cfg)
 
@@ -164,7 +233,7 @@ def process_page_and_children(confluence, page_id, level, output_dir, auth_cfg):
     try:
         child_pages = confluence.get_child_pages(page_id)
         for child in child_pages:
-            process_page_and_children(confluence, child['id'], level + 1, output_dir, auth_cfg)
+            process_page_and_children(confluence, child['id'], level + 1, output_dir, auth_cfg, latex_writer)
     except Exception as e:
         print(f"{indent}Error retrieving child pages for '{page_title}': {e}")
 
@@ -201,9 +270,15 @@ if __name__ == "__main__":
         os.makedirs(export_dir, exist_ok=True)
         print(f"All content will be saved in the '{export_dir}' directory.")
         
+        print("----Creating main LaTeX file...")
+        # Initialize the LatexWriter
+        latex_writer = LatexWriter(export_dir = export_dir)
         print("\n--- Traversing Site and Exporting Content ---")
-        process_page_and_children(confluence, start_page_id, 0, export_dir, auth_cfg)
+        process_page_and_children(confluence, start_page_id, 0, export_dir, auth_cfg, latex_writer)
         print("\n--- Export Complete! ---")
+
+        # Finalize the main LaTex Document 
+        latex_writer.close()
 
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}")
