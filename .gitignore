@@ -5,5 +5,10 @@ SAF
 debug.py
 debug_image.py
 style
-
-
+PMP.tex
+SEP.tex
+SAF.tex
+debug_conv.py
+debug_pandoc.py
+scribe_env
+.vscode
