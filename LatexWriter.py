@@ -18,14 +18,19 @@ class LatexWriter:
         preamble = r"""\documentclass[12pt,a4paper]{report}
 \usepackage{TII_style}
 
-\title{Minimal Example Document}
-\author{Author Name}
-\date{\today}
+% Set document info
+\renewcommand{\doctitle}{Systems Engineering Plan}
+%\renewcommand{\preparedby}{The SAFAR Team}
+%\renewcommand{\checkedby}{Dr. Anton B. Ivanov}
+%\renewcommand{\approvedby}{}
+%\renewcommand{\docphase}{Phase D}
+%\renewcommand{\doctitle}{Project SAFAR}
+%\renewcommand{\docsubtitle}{Mission Definition Report}
 
 \begin{document}
 
-\maketitle
-
+\makedocfrontpage
+\recordofrevisions
 \tableofcontents
 """
         self.file.write(preamble + "\n")
