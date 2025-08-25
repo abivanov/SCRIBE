@@ -239,13 +239,17 @@ def process_page_and_children(confluence, page_id, level, output_dir, auth_cfg, 
 
     
 if __name__ == "__main__":
+    # Also alternatively take configuration file from the command line 
     confluence_cfg, auth_cfg = read_config()
 
+    # Should be actually taken from the command line arguments
     # Initialize Confluence client once
     confluence = get_confluence_client(confluence_cfg, auth_cfg)
-
+    # Create a root directory for the export
+    export_dir = "confluence_export"
 
     start_page_url = "https://confluence.tii.ae/display/SAF/Project+Management+Plan"
+    start_page_url = "https://confluence.tii.ae/display/SAF/System+Engineering+Plan"
     space_key, page_title = parse_confluence_url(start_page_url)
 
     print( space_key, ":",  page_title)
